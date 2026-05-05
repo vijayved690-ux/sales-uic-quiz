@@ -7,10 +7,10 @@ import io
 import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'uic_exam_secret_key'
+app.config['SECRET_KEY'] = 'uic_ultra_secret'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# MongoDB Connection (Data deployment par delete nahi hoga)
+# MongoDB Connection
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 client = MongoClient(MONGO_URI)
 db = client['uic_assessment_db']
@@ -37,6 +37,7 @@ def send_wati_message(phone, text):
 def dashboard():
     return render_template('index.html')
 
+# Storage Stats
 @app.route('/storage_stats', methods=['GET'])
 def storage_stats():
     try:
@@ -44,42 +45,44 @@ def storage_stats():
         used_mb = round(stats.get('dataSize', 0) / (1024 * 1024), 4)
         total_limit_mb = 512.0
         percent_used = round((used_mb / total_limit_mb) * 100, 4)
-        return jsonify({
-            "status": "success", "used_mb": used_mb,
-            "free_mb": round(total_limit_mb - used_mb, 4),
-            "total_mb": total_limit_mb, "percent_used": percent_used
-        })
+        return jsonify({"status": "success", "used_mb": used_mb, "free_mb": round(total_limit_mb - used_mb, 4), "total_mb": total_limit_mb, "percent_used": percent_used})
     except:
-        return jsonify({"status": "error", "message": "Could not fetch stats"})
+        return jsonify({"status": "error", "message": "Stats error"})
+
+# Question Management APIs
+@app.route('/add_question', methods=['POST'])
+def add_question():
+    data = request.json
+    questions_col.insert_one({"role": data['role'], "question_text": data['question_text'], "order": int(data['order'])})
+    return jsonify({"status": "success", "message": "Question added!"})
+
+@app.route('/get_questions', methods=['GET'])
+def get_questions():
+    qs = list(questions_col.find({}, {"_id": 0}).sort("order", 1))
+    return jsonify(qs)
 
 @app.route('/add_user', methods=['POST'])
 def add_user():
     data = request.json
     users_col.insert_one({"name": data['name'], "phone": data['phone'], "role": data['role']})
-    return jsonify({"status": "success", "message": f"{data['name']} added to UIC database!"})
+    return jsonify({"status": "success", "message": f"{data['name']} added!"})
 
 @app.route('/trigger_exam', methods=['POST'])
 def trigger_exam():
     users = users_col.find()
     for user in users:
         url = f"{WATI_API_ENDPOINT}/api/v1/sendTemplateMessage?whatsappNumber={user['phone']}"
-        payload = {
-            "template_name": "daily_exam_start",
-            "broadcast_name": "uic_exam_trigger",
-            "parameters": [{"name": "1", "value": user['name']}]
-        }
+        payload = {"template_name": "daily_exam_start", "broadcast_name": "uic_trigger", "parameters": [{"name": "1", "value": user['name']}]}
         requests.post(url, headers=headers, json=payload)
-    return jsonify({"status": "success", "message": "Exam templates sent to UIC team."})
+    return jsonify({"status": "success", "message": "Templates sent!"})
 
 @app.route('/wati_webhook', methods=['POST'])
 def wati_webhook():
     data = request.json
     sender_phone = data.get('waId')
     incoming_text = data.get('text', '').strip()
-
     user = users_col.find_one({"phone": sender_phone})
     if not user: return "User not found", 404
-
     session = sessions_col.find_one({"phone": sender_phone})
     
     if incoming_text.upper() == 'START':
@@ -88,50 +91,47 @@ def wati_webhook():
         sessions_col.update_one({"phone": sender_phone}, {"$set": {"current_q_index": 0, "role": user['role'], "total_q": total_q}}, upsert=True)
         if total_q > 0:
             send_wati_message(sender_phone, f"📝 *Q 1/{total_q}:* {questions[0]['question_text']}")
-            socketio.emit('live_update', {'msg': f"🟢 {user['name']} started reporting."})
+            socketio.emit('live_update', {'msg': f"🟢 {user['name']} started."})
         return "OK", 200
 
     if session:
         idx = session.get('current_q_index', 0)
         total = session.get('total_q', 0)
         questions = list(questions_col.find({"role": user['role']}).sort("order", 1))
-        
         if idx < len(questions):
-            answers_col.insert_one({"phone": sender_phone, "name": user['name'], "role": user['role'], "question": questions[idx]['question_text'], "answer": incoming_text})
+            answers_col.insert_one({"name": user['name'], "role": user['role'], "question": questions[idx]['question_text'], "answer": incoming_text})
             socketio.emit('live_update', {'msg': f"📝 {user['name']} (Q {idx+1}): {incoming_text}"})
-            
             next_idx = idx + 1
             if next_idx < len(questions):
                 sessions_col.update_one({"phone": sender_phone}, {"$set": {"current_q_index": next_idx}})
                 send_wati_message(sender_phone, f"📝 *Q {next_idx+1}/{total}:* {questions[next_idx]['question_text']}")
             else:
                 sessions_col.delete_one({"phone": sender_phone})
-                send_wati_message(sender_phone, "✅ *Dhanyawad!* UIC Business reporting complete.")
-                socketio.emit('live_update', {'msg': f"✅ {user['name']} completed report."})
+                send_wati_message(sender_phone, "✅ *Dhanyawad!* Reporting complete.")
+                socketio.emit('live_update', {'msg': f"✅ {user['name']} finished."})
     return "OK", 200
 
 @app.route('/send_announcement', methods=['POST'])
 def send_announcement():
-    data = request.json
-    msg = data.get('message', '')
+    msg = request.json.get('message', '')
     users = users_col.find()
     for user in users:
         url = f"{WATI_API_ENDPOINT}/api/v1/sendTemplateMessage?whatsappNumber={user['phone']}"
-        payload = {"template_name": "team_announcement", "broadcast_name": "uic_announcement", "parameters": [{"name": "1", "value": user['name']}, {"name": "2", "value": msg}]}
+        payload = {"template_name": "team_announcement", "parameters": [{"name": "1", "value": user['name']}, {"name": "2", "value": msg}]}
         requests.post(url, headers=headers, json=payload)
-    return jsonify({"status": "success", "message": "Announcement broadcasted!"})
+    return jsonify({"status": "success", "message": "Broadcasted!"})
 
 @app.route('/export_excel', methods=['GET'])
 def export_excel():
-    all_answers = list(answers_col.find())
-    if not all_answers: return "No data", 400
-    df = pd.DataFrame(all_answers)
+    all_ans = list(answers_col.find({}, {"_id": 0}))
+    if not all_ans: return "No data", 400
+    df = pd.DataFrame(all_ans)
     pivot_df = df.pivot_table(index='question', columns='name', values='answer', aggfunc='first')
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        pivot_df.to_excel(writer, sheet_name='UIC_Results')
+        pivot_df.to_excel(writer, sheet_name='Results')
     output.seek(0)
-    return send_file(output, download_name="UIC_Reporting_Report.xlsx", as_attachment=True)
+    return send_file(output, download_name="UIC_Report.xlsx", as_attachment=True)
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000)
