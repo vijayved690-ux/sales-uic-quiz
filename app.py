@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_super_secret_key'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# MongoDB Connection
+# MongoDB Connection (Use MongoDB Atlas Cloud URI here so data never deletes on deployment)
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 client = MongoClient(MONGO_URI)
 db = client['sales_exam_db']
@@ -37,7 +37,31 @@ def send_wati_message(phone, text):
 def dashboard():
     return render_template('index.html')
 
-# API: Add User
+# API: Database Storage Stats
+@app.route('/storage_stats', methods=['GET'])
+def storage_stats():
+    try:
+        stats = db.command("dbstats")
+        # Convert bytes to Megabytes (MB)
+        data_size_mb = stats.get('dataSize', 0) / (1024 * 1024)
+        
+        # MongoDB Atlas Free Tier Limit is 512 MB
+        total_limit_mb = 512.0
+        used_mb = round(data_size_mb, 4)
+        free_mb = round(total_limit_mb - used_mb, 4)
+        percent_used = round((used_mb / total_limit_mb) * 100, 4)
+
+        return jsonify({
+            "status": "success",
+            "used_mb": used_mb,
+            "free_mb": free_mb,
+            "total_mb": total_limit_mb,
+            "percent_used": percent_used
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+# API: Add Team Member
 @app.route('/add_user', methods=['POST'])
 def add_user():
     data = request.json
@@ -49,8 +73,14 @@ def add_user():
 def trigger_exam():
     users = users_col.find()
     for user in users:
-        send_wati_message(user['phone'], f"Hello {user['name']}, aapka daily reporting portal live ho gaya hai. Kripya 'START' likh kar reply karein.")
-    return jsonify({"status": "success", "message": "Exam notifications sent to all users."})
+        url = f"{WATI_API_ENDPOINT}/api/v1/sendTemplateMessage?whatsappNumber={user['phone']}"
+        payload = {
+            "template_name": "daily_exam_start",
+            "broadcast_name": "exam_trigger",
+            "parameters": [{"name": "1", "value": user['name']}]
+        }
+        requests.post(url, headers=headers, json=payload)
+    return jsonify({"status": "success", "message": "Exam templates sent to all users."})
 
 # API: Handle WhatsApp Replies (WATI Webhook)
 @app.route('/wati_webhook', methods=['POST'])
@@ -123,6 +153,30 @@ def export_excel():
     
     output.seek(0)
     return send_file(output, download_name="WhatsApp_Exam_Report.xlsx", as_attachment=True)
+
+# API: Send Custom Announcement
+@app.route('/send_announcement', methods=['POST'])
+def send_announcement():
+    data = request.json
+    custom_message = data.get('message', '')
+    
+    if not custom_message:
+        return jsonify({"status": "error", "message": "Message cannot be empty"}), 400
+
+    users = users_col.find()
+    for user in users:
+        url = f"{WATI_API_ENDPOINT}/api/v1/sendTemplateMessage?whatsappNumber={user['phone']}"
+        payload = {
+            "template_name": "team_announcement",
+            "broadcast_name": "team_update",
+            "parameters": [
+                {"name": "1", "value": user['name']},
+                {"name": "2", "value": custom_message}
+            ]
+        }
+        requests.post(url, headers=headers, json=payload)
+        
+    return jsonify({"status": "success", "message": "Announcement sent to all members!"})
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
