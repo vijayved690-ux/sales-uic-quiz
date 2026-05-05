@@ -2,237 +2,100 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Management Portal</title>
+    <title>UIC Management Portal</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            padding: 20px; 
-            background-color: #ffffff; 
-            color: #333333; 
-        }
-        .container { 
-            max-width: 900px; 
-            margin: auto; 
-            background: #ffffff; 
-            padding: 30px; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-            border: 1px solid #eaeaea; 
-        }
-        h1, h2, h3 { 
-            color: #111111; 
-            font-weight: 500;
-        }
-        h1, h2 {
-            border-bottom: 1px solid #eaeaea; 
-            padding-bottom: 10px; 
-            margin-bottom: 20px; 
-        }
-        .box { 
-            border: 1px solid #eaeaea; 
-            padding: 20px; 
-            margin-bottom: 25px; 
-            border-radius: 6px; 
-            background-color: #fafafa; 
-        }
-        input, select, button, textarea { 
-            padding: 12px; 
-            margin: 8px 0; 
-            width: 100%; 
-            box-sizing: border-box; 
-            border: 1px solid #cccccc; 
-            border-radius: 4px; 
-            font-size: 15px; 
-            font-family: inherit;
-        }
-        input:focus, select:focus, textarea:focus { 
-            outline: none; 
-            border-color: #007bff; 
-            box-shadow: 0 0 5px rgba(0,123,255,0.2);
-        }
-        button { 
-            background-color: #007bff; 
-            color: white; 
-            border: none; 
-            cursor: pointer; 
-            font-weight: 600; 
-            transition: background-color 0.3s ease; 
-        }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #ffffff; color: #333; }
+        .container { max-width: 900px; margin: auto; border: 1px solid #eee; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .header-section { display: flex; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
+        .logo { height: 60px; margin-right: 20px; }
+        .box { border: 1px solid #eaeaea; padding: 20px; margin-bottom: 25px; border-radius: 8px; background-color: #fafafa; }
+        input, select, button, textarea { padding: 12px; margin: 8px 0; width: 100%; border: 1px solid #ccc; border-radius: 5px; font-size: 15px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: 600; }
         button:hover { background-color: #0056b3; }
         .btn-success { background-color: #28a745; }
-        .btn-success:hover { background-color: #218838; }
         .btn-warning { background-color: #ff9800; }
-        .btn-warning:hover { background-color: #e68a00; }
-        
-        #live-feed { 
-            background: #ffffff; 
-            color: #333333; 
-            padding: 15px; 
-            height: 200px; 
-            overflow-y: auto; 
-            font-family: 'Courier New', Courier, monospace; 
-            border: 1px solid #cccccc; 
-            border-radius: 4px; 
-        }
-        .feed-item { margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
-        
-        /* Storage Progress Bar Styles */
-        .storage-bar-bg {
-            background-color: #e9ecef;
-            border-radius: 4px;
-            height: 20px;
-            width: 100%;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-        .storage-bar-fill {
-            background-color: #28a745;
-            height: 100%;
-            width: 0%;
-            transition: width 0.5s ease-in-out;
-        }
-        .storage-text {
-            font-size: 14px;
-            color: #555;
-            margin-top: 5px;
-            display: flex;
-            justify-content: space-between;
-        }
+        #live-feed { background: #fff; border: 1px solid #ccc; padding: 15px; height: 200px; overflow-y: auto; font-family: monospace; }
+        .storage-bar-bg { background-color: #e9ecef; border-radius: 5px; height: 15px; width: 100%; overflow: hidden; margin-top: 10px; }
+        .storage-bar-fill { background-color: #28a745; height: 100%; width: 0%; transition: width 0.5s; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
     <div class="container">
-        
-        <h1>Dashboard - Team Assessment & Communication</h1>
-
-        <!-- Storage Status Box -->
-        <div class="box" style="background-color: #eef7ff; border-color: #b8daff;">
-            <h2 style="border-bottom: none; margin-bottom: 0px; font-size: 18px;">💾 Database Storage Status</h2>
-            <div class="storage-bar-bg">
-                <div id="storage-fill" class="storage-bar-fill"></div>
+        <div class="header-section">
+            <div id="logo-container">
+                <h2 style="margin: 0; color: #007bff;">UIC</h2>
             </div>
-            <div class="storage-text">
-                <span id="storage-used">Used: Loading...</span>
-                <span id="storage-free">Free: Loading...</span>
+            <div style="margin-left: 10px;">
+                <h1 style="margin: 0; font-size: 24px;">Usmanpura Imaging Centre</h1>
+            </div>
+        </div>
+
+        <div class="box" style="background-color: #f0f7ff;">
+            <h3 style="margin-top: 0;">💾 Database Storage (MongoDB Atlas)</h3>
+            <div class="storage-bar-bg"><div id="storage-fill" class="storage-bar-fill"></div></div>
+            <div style="display: flex; justify-content: space-between; font-size: 13px; margin-top: 5px;">
+                <span id="storage-used">Used: 0 MB</span>
+                <span id="storage-free">Free: 512 MB</span>
             </div>
         </div>
 
         <div class="box">
-            <h2>1. Add Team Member</h2>
-            <input type="text" id="name" placeholder="Full Name (e.g., Alpesh Rohit)">
-            <input type="text" id="phone" placeholder="WhatsApp Number (with country code e.g., 919876543210)">
-            <select id="role">
-                <option value="Seniours">Seniours</option>
-                <option value="Buddies">Buddies</option>
-            </select>
-            <button onclick="addUser()">Add Member to Database</button>
+            <h3>1. Add Team Member (Seniours / Buddies)</h3>
+            <input type="text" id="name" placeholder="Person Name">
+            <input type="text" id="phone" placeholder="WhatsApp Number (e.g. 91...)">
+            <select id="role"><option value="Seniours">Seniours</option><option value="Buddies">Buddies</option></select>
+            <button onclick="addUser()">Save to UIC Team</button>
         </div>
 
         <div class="box">
-            <h2>2. Quick Actions & Announcements</h2>
-            <button onclick="triggerExam()" style="margin-bottom: 15px;">🚀 Start Exam / Send Notification</button>
-            <button class="btn-success" onclick="window.location.href='/export_excel'" style="margin-bottom: 25px;">📊 Download Excel Report</button>
-            
-            <h3 style="margin-top: 10px; font-size: 16px; border-bottom: none;">Send Custom Announcement</h3>
-            <textarea id="announcement_msg" rows="3" placeholder="Type your custom message here for the whole team..."></textarea>
-            <button class="btn-warning" onclick="sendAnnouncement()">📢 Broadcast Announcement</button>
+            <h3>2. Actions & Announcement</h3>
+            <button onclick="triggerExam()">🚀 Send Daily Report Trigger</button>
+            <button class="btn-success" onclick="window.location.href='/export_excel'">📊 Download Excel Report</button>
+            <textarea id="announcement_msg" rows="2" placeholder="Type announcement for UIC team..." style="margin-top: 15px;"></textarea>
+            <button class="btn-warning" onclick="sendAnnouncement()">📢 Broadcast Message</button>
         </div>
 
         <div class="box">
-            <h2>3. Live Feed Tracker</h2>
-            <div id="live-feed">
-                <div class="feed-item"><i>System connected. Waiting for live activity...</i></div>
-            </div>
+            <h3>3. Live Tracking (WhatsApp Activity)</h3>
+            <div id="live-feed"><div>Waiting for activity...</div></div>
         </div>
     </div>
 
     <script>
-        // Load Storage Stats
-        function loadStorageStats() {
-            fetch('/storage_stats')
-                .then(response => response.json())
-                .then(data => {
-                    if(data.status === "success") {
-                        document.getElementById('storage-used').innerText = `Used: ${data.used_mb} MB`;
-                        document.getElementById('storage-free').innerText = `Free: ${data.free_mb} MB / Total: ${data.total_mb} MB`;
-                        
-                        let fillBar = document.getElementById('storage-fill');
-                        fillBar.style.width = `${data.percent_used}%`;
-                        
-                        // Change color to red if storage is over 90%
-                        if(data.percent_used > 90) {
-                            fillBar.style.backgroundColor = '#dc3545';
-                        }
-                    }
-                })
-                .catch(err => console.error("Error loading storage stats: ", err));
-        }
-
-        // Run when page loads
-        window.onload = function() {
-            loadStorageStats();
-        };
-
         var socket = io();
         socket.on('live_update', function(data) {
             var feed = document.getElementById('live-feed');
-            feed.innerHTML += "<div class='feed-item'>" + data.msg + "</div>";
+            feed.innerHTML += "<div>" + data.msg + "</div>";
             feed.scrollTop = feed.scrollHeight;
-            
-            // Update storage stats slightly after every new message
-            setTimeout(loadStorageStats, 2000); 
+            updateStorage();
         });
+
+        function updateStorage() {
+            fetch('/storage_stats').then(res => res.json()).then(data => {
+                document.getElementById('storage-used').innerText = `Used: ${data.used_mb} MB`;
+                document.getElementById('storage-free').innerText = `Free: ${data.free_mb} MB`;
+                document.getElementById('storage-fill').style.width = data.percent_used + "%";
+            });
+        }
+        window.onload = updateStorage;
 
         function addUser() {
             let name = document.getElementById('name').value;
             let phone = document.getElementById('phone').value;
             let role = document.getElementById('role').value;
-
-            if(!name || !phone) {
-                alert("Please fill name and phone number!");
-                return;
-            }
-
-            fetch('/add_user', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: name, phone: phone, role: role})
-            }).then(res => res.json()).then(data => {
-                alert(data.message);
-                document.getElementById('name').value = '';
-                document.getElementById('phone').value = '';
-            });
+            fetch('/add_user', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, phone, role})})
+            .then(res => res.json()).then(data => { alert(data.message); });
         }
 
         function triggerExam() {
-            if(confirm("Are you sure you want to trigger the exam for all members?")) {
-                fetch('/trigger_exam', {method: 'POST'})
-                .then(res => res.json())
-                .then(data => alert(data.message));
-            }
+            if(confirm("Start daily reporting for all?")) fetch('/trigger_exam', {method: 'POST'}).then(res => res.json()).then(data => alert(data.message));
         }
 
         function sendAnnouncement() {
             let msg = document.getElementById('announcement_msg').value;
-            if(!msg) {
-                alert("Please type a message first!");
-                return;
-            }
-            
-            if(confirm("Are you sure you want to broadcast this message to everyone?")) {
-                fetch('/send_announcement', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: msg})
-                })
-                .then(res => res.json())
-                .then(data => {
-                    alert(data.message);
-                    document.getElementById('announcement_msg').value = ''; 
-                });
-            }
+            fetch('/send_announcement', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: msg})})
+            .then(res => res.json()).then(data => { alert(data.message); document.getElementById('announcement_msg').value = ''; });
         }
     </script>
 </body>
