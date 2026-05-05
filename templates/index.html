@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Management Portal</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px; 
+            background-color: #ffffff; 
+            color: #333333; 
+        }
+        .container { 
+            max-width: 900px; 
+            margin: auto; 
+            background: #ffffff; 
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            border: 1px solid #eaeaea; 
+        }
+        h1, h2 { 
+            color: #111111; 
+            border-bottom: 1px solid #eaeaea; 
+            padding-bottom: 10px; 
+            margin-bottom: 20px; 
+            font-weight: 500;
+        }
+        .box { 
+            border: 1px solid #eaeaea; 
+            padding: 20px; 
+            margin-bottom: 25px; 
+            border-radius: 6px; 
+            background-color: #fafafa; 
+        }
+        input, select, button { 
+            padding: 12px; 
+            margin: 8px 0; 
+            width: 100%; 
+            box-sizing: border-box; 
+            border: 1px solid #cccccc; 
+            border-radius: 4px; 
+            font-size: 15px; 
+        }
+        input:focus, select:focus { 
+            outline: none; 
+            border-color: #007bff; 
+            box-shadow: 0 0 5px rgba(0,123,255,0.2);
+        }
+        button { 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: 600; 
+            transition: background-color 0.3s ease; 
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        .btn-success { 
+            background-color: #28a745; 
+        }
+        .btn-success:hover { 
+            background-color: #218838; 
+        }
+        #live-feed { 
+            background: #ffffff; 
+            color: #333333; 
+            padding: 15px; 
+            height: 250px; 
+            overflow-y: auto; 
+            font-family: 'Courier New', Courier, monospace; 
+            border: 1px solid #cccccc; 
+            border-radius: 4px; 
+        }
+        .feed-item { 
+            margin-bottom: 8px; 
+            border-bottom: 1px dashed #eee; 
+            padding-bottom: 5px; 
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard - Team Assessment</h1>
+
+        <div class="box">
+            <h2>1. Add Team Member</h2>
+            <input type="text" id="name" placeholder="Full Name (e.g., Alpesh Rohit)">
+            <input type="text" id="phone" placeholder="WhatsApp Number (e.g., 919876543210)">
+            <select id="role">
+                <option value="Seniours">Seniours</option>
+                <option value="Buddies">Buddies</option>
+            </select>
+            <button onclick="addUser()">Add Member to Database</button>
+        </div>
+
+        <div class="box">
+            <h2>2. Quick Actions</h2>
+            <button onclick="triggerExam()">Start Exam / Send Notification</button>
+            <button class="btn-success" onclick="window.location.href='/export_excel'">Download Excel Report</button>
+        </div>
+
+        <div class="box">
+            <h2>3. Live Feed Tracker</h2>
+            <div id="live-feed">
+                <div class="feed-item"><i>System connected. Waiting for live activity...</i></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var socket = io();
+        socket.on('live_update', function(data) {
+            var feed = document.getElementById('live-feed');
+            feed.innerHTML += "<div class='feed-item'>" + data.msg + "</div>";
+            feed.scrollTop = feed.scrollHeight;
+        });
+
+        function addUser() {
+            let name = document.getElementById('name').value;
+            let phone = document.getElementById('phone').value;
+            let role = document.getElementById('role').value;
+
+            if(!name || !phone) {
+                alert("Please fill name and phone number!");
+                return;
+            }
+
+            fetch('/add_user', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: name, phone: phone, role: role})
+            }).then(res => res.json()).then(data => {
+                alert(data.message);
+                document.getElementById('name').value = '';
+                document.getElementById('phone').value = '';
+            });
+        }
+
+        function triggerExam() {
+            if(confirm("Are you sure you want to trigger the exam for all members?")) {
+                fetch('/trigger_exam', {method: 'POST'})
+                .then(res => res.json())
+                .then(data => alert(data.message));
+            }
+        }
+    </script>
+</body>
+</html>
