@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: uic-mis-bot
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
-    envVars:
-      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: false
