@@ -1,17 +1,16 @@
 {
-  "name": "uic-mis-bot",
-  "version": "1.0.0",
-  "main": "mis-bot.js",
-  "scripts": {
-    "start": "node mis-bot.js",
-    "postinstall": "npx puppeteer browsers install chrome"
-  },
-  "dependencies": {
-    "express": "^4.19.2",
-    "google-spreadsheet": "^4.1.1",
-    "node-cron": "^3.0.3",
-    "puppeteer": "^24.10.2",
-    "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.23.0"
-  }
+"name": "uic-mis-bot",
+"version": "1.0.0",
+"main": "mis-bot.js",
+"scripts": {
+"start": "node mis-bot.js"
+},
+"dependencies": {
+"express": "^4.19.2",
+"google-spreadsheet": "^4.1.1",
+"node-cron": "^3.0.3",
+"puppeteer": "^24.10.2",
+"qrcode-terminal": "^0.12.0",
+"whatsapp-web.js": "^1.23.0"
+}
 }
