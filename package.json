@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "mis-bot.js",
   "scripts": {
-    "start": "node mis-bot.js"
+    "start": "node mis-bot.js",
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "google-spreadsheet": "^4.1.1",
