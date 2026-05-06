@@ -1,190 +1,170 @@
-const express = require('express');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
-const cron = require('node-cron');
-
-const app = express();
-const PORT = process.env.PORT || 10000;
-
-app.get('/', (req, res) => {
-  res.send('UIC MIS BOT RUNNING');
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on ${PORT}`);
-});
-
 const creds = require('./google-creds.json');
+const cron = require('node-cron');
+const express = require('express');
 
+// --- RENDER DUMMY SERVER (To keep it alive) ---
+const app = express();
+const port = process.env.PORT || 3000;
+app.get('/', (req, res) => res.send('Bot is active! Scan QR in Logs.'));
+app.listen(port, () => console.log(`Server listening on port ${port}`));
+
+// --- WHATSAPP CLIENT SETUP ---
 const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: {
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--single-process'
-    ]
-  }
+    authStrategy: new LocalAuth(),
+    puppeteer: { 
+        headless: true, 
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', 
+            '--disable-gpu'
+        ] 
+    }
 });
 
-const MANAGER_PHONE = '9198XXXXXXXX@c.us';
-const SHEET_ID = 'PASTE_GOOGLE_SHEET_ID';
+// ===== CONFIG - FILL YOUR DATA HERE =====
+const MANAGER_PHONE = '91XXXXXXXXXX@c.us'; // Manager's number
+const SHEET_ID = 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE';
 
 const buddies = [
-  { name: 'AMAN DESAI', phone: '9198XXXXXXXX@c.us' }
+    { name: 'AMAN DESAI', phone: '91XXXXXXXXXX@c.us' },
+    { name: 'ARPIT PATEL', phone: '91XXXXXXXXXX@c.us' },
+    { name: 'CHETAN TUSHAVARA', phone: '91XXXXXXXXXX@c.us' },
+    { name: 'JITENDRA MEHTA', phone: '91XXXXXXXXXX@c.us' },
+    { name: 'NISHAL CHOKSI', phone: '91XXXXXXXXXX@c.us' },
+    { name: 'PRASHANT GARANGE', phone: '91XXXXXXXXXX@c.us' },
+    { name: 'SHAHEBAJ SHAIKH', phone: '91XXXXXXXXXX@c.us' },
+    { name: 'YOGESH SOLANKI', phone: '91XXXXXXXXXX@c.us' }
 ];
+// ========================================
 
 const questions = [
-  "1) What's your target?",
-  "2) Minus doctors visited?",
-  "3) Doctor list complete?",
-  "4) Call average?",
-  "5) Minus 30 completion date?",
-  "6) Strategy?",
-  "7) New doctors?",
-  "8) Corporate leads?",
-  "9) Suggestions?"
+    "1) What's your May 26 target?",
+    "2) How many minus doctors have you visited till today?",
+    "3) Will you be able to complete your full doctor list visits this month? Yes/No",
+    "4) What is your Call_Average?",
+    "5) When will you complete minus 30 list? Give date DD/MM",
+    "6) What is your strategy for achieve target?",
+    "7) How many new dr you will add this month?",
+    "8) Do you have any lead for corporate-tieup? Yes/No + Company name",
+    "9) Do you have Any suggestion or Idea to grow UIC Business?"
 ];
 
-let userState = {};
-let doc;
+let userState = {}; 
+let doc; 
 
 client.on('qr', qr => {
-  console.log('SCAN QR');
-  qrcode.generate(qr, { small: true });
+    qrcode.generate(qr, {small: true});
+    console.log('--- SCAN THIS QR IN RENDER LOGS ---');
 });
 
 client.on('ready', async () => {
-  console.log('BOT READY');
-  await initSheet();
-  scheduleDailyMIS();
-  scheduleReminder();
-  scheduleSummary();
+    console.log('✅ MIS Bot Ready at', new Date().toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'}));
+    await initSheet();
+    scheduleDailyMIS();
+    scheduleReminder();
+    scheduleSummary();
 });
 
 client.on('message', async msg => {
-  const phone = msg.from;
-  const buddy = buddies.find(b => b.phone === phone);
+    const phone = msg.from;
+    const buddy = buddies.find(b => b.phone === phone);
+    if (!buddy || msg.fromMe) return;
 
-  if (!buddy || msg.fromMe) return;
+    if (!userState[phone]) userState[phone] = { step: 0, answers: [], name: buddy.name, completed: false };
+    const state = userState[phone];
 
-  if (!userState[phone]) {
-    userState[phone] = {
-      step: 0,
-      answers: [],
-      name: buddy.name,
-      completed: false
-    };
-  }
+    if (state.completed) {
+        await msg.reply('Today\'s MIS already submitted ✅. See you tomorrow 7 PM.');
+        return;
+    }
 
-  const state = userState[phone];
+    if (state.step > 0) {
+        state.answers[state.step - 1] = msg.body.trim();
+    }
 
-  if (state.completed) {
-    await msg.reply('MIS already submitted');
-    return;
-  }
-
-  if (state.step > 0) {
-    state.answers[state.step - 1] = msg.body.trim();
-  }
-
-  if (state.step < questions.length) {
-    await client.sendMessage(phone, questions[state.step]);
-    state.step++;
-  } else {
-    await saveToSheet(state.name, state.answers);
-    state.completed = true;
-    await client.sendMessage(phone, 'MIS Submitted Successfully');
-  }
+    if (state.step < questions.length) {
+        await client.sendMessage(phone, questions[state.step]);
+        state.step++;
+    } else {
+        await client.sendMessage(phone, '✅ Done! All 9 answers submitted. Thank you.\n\nSummary will be sent to management at 10:30 PM.');
+        await saveToSheet(state.name, state.answers);
+        state.completed = true;
+    }
 });
 
 async function initSheet() {
-  doc = new GoogleSpreadsheet(SHEET_ID);
-  await doc.useServiceAccountAuth(creds);
-  await doc.loadInfo();
-  console.log('Google Sheet Connected');
+    try {
+        doc = new GoogleSpreadsheet(SHEET_ID);
+        await doc.useServiceAccountAuth(creds);
+        await doc.loadInfo();
+        console.log('Connected to Sheet:', doc.title);
+    } catch (e) {
+        console.error('Sheet Auth Error:', e);
+    }
 }
 
 async function saveToSheet(name, answers) {
-  const sheet = doc.sheetsByIndex[0];
-
-  await sheet.addRow({
-    Timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-    Buddy: name,
-    Q1: answers[0] || '',
-    Q2: answers[1] || '',
-    Q3: answers[2] || '',
-    Q4: answers[3] || '',
-    Q5: answers[4] || '',
-    Q6: answers[5] || '',
-    Q7: answers[6] || '',
-    Q8: answers[7] || '',
-    Q9: answers[8] || ''
-  });
+    const sheet = doc.sheetsByIndex[0];
+    await sheet.addRow({
+        Timestamp: new Date().toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'}),
+        Buddy: name,
+        Q1_Target: answers[0] || '',
+        Q2_MinusVisited: answers[1] || '',
+        Q3_CompleteList: answers[2] || '',
+        Q4_CallAvg: answers[3] || '',
+        Q5_Minus30Date: answers[4] || '',
+        Q6_Strategy: answers[5] || '',
+        Q7_NewDr: answers[6] || '',
+        Q8_CorporateLead: answers[7] || '',
+        Q9_Suggestion: answers[8] || ''
+    });
 }
 
 function scheduleDailyMIS() {
-  cron.schedule('0 19 * * *', async () => {
-    for (const b of buddies) {
-      userState[b.phone] = {
-        step: 1,
-        answers: [],
-        name: b.name,
-        completed: false
-      };
-
-      await client.sendMessage(
-        b.phone,
-        `Daily MIS Time\n\n${questions[0]}`
-      );
-    }
-  }, {
-    timezone: 'Asia/Kolkata'
-  });
+    cron.schedule('0 19 * * *', () => {
+        buddies.forEach(async b => {
+            userState[b.phone] = { step: 0, answers: [], name: b.name, completed: false };
+            await client.sendMessage(b.phone, `Hi ${b.name}, Daily MIS time 📊\n\n${questions[0]}`);
+            userState[b.phone].step = 1;
+        });
+    }, { timezone: "Asia/Kolkata" });
 }
 
 function scheduleReminder() {
-  cron.schedule('0 21 * * *', async () => {
-    for (const b of buddies) {
-      const state = userState[b.phone];
-
-      if (state && !state.completed) {
-        await client.sendMessage(
-          b.phone,
-          'Reminder: MIS Pending'
-        );
-      }
-    }
-  }, {
-    timezone: 'Asia/Kolkata'
-  });
+    cron.schedule('0 21 * * *', () => {
+        buddies.forEach(async b => {
+            const state = userState[b.phone];
+            if (state && !state.completed && state.step > 0) {
+                await client.sendMessage(b.phone, `⏰ Reminder: Please complete remaining questions.\n\nNext: ${questions[state.step-1]}`);
+            }
+        });
+    }, { timezone: "Asia/Kolkata" });
 }
 
 function scheduleSummary() {
-  cron.schedule('30 22 * * *', async () => {
-    let completed = 0;
-    let summary = '*UIC MIS SUMMARY*\n\n';
-
-    for (const b of buddies) {
-      const state = userState[b.phone];
-
-      if (state && state.completed) {
-        completed++;
-        summary += `✅ ${b.name}\n`;
-      } else {
-        summary += `❌ ${b.name}\n`;
-      }
-    }
-
-    summary += `\nSubmitted: ${completed}/${buddies.length}`;
-
-    await client.sendMessage(MANAGER_PHONE, summary);
-  }, {
-    timezone: 'Asia/Kolkata'
-  });
+    cron.schedule('30 22 * * *', async () => {
+        let completedCount = 0;
+        let summary = `*UIC Buddy MIS Summary – ${new Date().toLocaleDateString('en-IN')}*\n\n`;
+        buddies.forEach(b => {
+            const state = userState[b.phone];
+            if (state && state.completed) {
+                completedCount++;
+                summary += `✅ ${b.name}: Submitted\n`;
+            } else {
+                summary += `❌ ${b.name}: No Response\n`;
+            }
+        });
+        summary += `\nTotal: ${completedCount}/${buddies.length} submitted.`;
+        await client.sendMessage(MANAGER_PHONE, summary);
+    }, { timezone: "Asia/Kolkata" });
 }
 
 client.initialize();
